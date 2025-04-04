@@ -25,6 +25,12 @@ plugins {
 group = 'org.matilda'
 version = '0.2-SNAPSHOT'
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(23)
+    }
+}
+
 repositories {
     mavenCentral()
 }
@@ -58,7 +64,7 @@ tasks.withType(JavaExec).configureEach {
 task bootstrapJar(type: Jar) {
     from(sourceSets.main.output) {
         include "org/matilda/bootstrap/**"
-        exclude "org/matilda/bootstrap/Caller.class" // this is a testing class that should not be packaged
+        exclude "org/matilda/bootstrap/ModuleProxy.class" // this is a testing class that should not be packaged
 
     }
     archiveBaseName = 'matilda-bootstrap'

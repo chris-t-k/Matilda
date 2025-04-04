@@ -18,6 +18,7 @@ package org.matilda.test;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.OS;
 import org.matilda.bootstrap.ModuleProxy;
 
 import java.io.BufferedReader;
@@ -39,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 
 public class AgentMatildaTest {
+
     @Test
     public void testSystemExitTransformer()  {
         RuntimeException uOE = Assertions.assertThrows(RuntimeException.class, () -> {
@@ -90,7 +92,7 @@ public class AgentMatildaTest {
     public void testSystemExecTransformerNegative() throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException, InterruptedException {
         Class<?> aClass = Class.forName("java.lang.Runtime");
         Method exec = aClass.getMethod("exec", String.class);
-        Process echo = (Process) ModuleProxy.call(Runtime.getRuntime(), exec, "echo foo");
+        Process echo = (Process) ModuleProxy.call(Runtime.getRuntime(), exec, OS.WINDOWS.isCurrentOs() ? "cmd.exe /c echo foo" : "echo foo");
         echo.waitFor(3, TimeUnit.SECONDS);
         Assertions.assertEquals(0, echo.exitValue());
         try (BufferedReader reader = new BufferedReader(new InputStreamReader( echo.getInputStream()))) {
@@ -206,8 +208,6 @@ public class AgentMatildaTest {
         Assertions.assertEquals("Socket.connect not allowed for Module: matilda.test", exception_url.getMessage());
     }
 
-
-
     @Test
     public void serverSocketTest() {
         RuntimeException exception = Assertions.assertThrows(RuntimeException.class, () -> {
@@ -217,4 +217,5 @@ public class AgentMatildaTest {
             }
         });
         Assertions.assertEquals("ServerSocket.bind not allowed for Module: matilda.test", exception.getMessage());
-    }}
+    }
+}

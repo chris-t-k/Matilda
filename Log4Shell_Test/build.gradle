@@ -22,6 +22,12 @@ group = 'org.matilda'
 version = '1.0-SNAPSHOT'
 def agent_version = '0.1'
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(23)
+    }
+}
+
 repositories {
     mavenCentral()
 }
