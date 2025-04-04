@@ -19,6 +19,7 @@ package org.matilda.test;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.OS;
+import org.matilda.bootstrap.MatildaAccessControl;
 import org.matilda.bootstrap.ModuleProxy;
 
 import java.io.BufferedReader;
@@ -26,9 +27,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -218,4 +223,24 @@ public class AgentMatildaTest {
         });
         Assertions.assertEquals("ServerSocket.bind not allowed for Module: matilda.test", exception.getMessage());
     }
+
+    @Test
+    public void bootstrapPackageIsNotOpen() {
+        Assertions.assertThrows(Throwable.class, () -> {
+            Class<?> macClass = Class.forName(MatildaAccessControl.class.getName(), false, null);
+
+            assert macClass != MatildaAccessControl.class;
+            assert macClass.getModule().isOpen(macClass.getPackageName(), this.getClass().getModule());
+
+            Field systemExitAllowPermissions = macClass.getDeclaredField("systemExitAllowPermissions");
+            systemExitAllowPermissions.setAccessible(true);
+            Object mac = macClass.getMethod("getInstance").invoke(null);
+            List<String> modules = new ArrayList<>((Set) systemExitAllowPermissions.get(mac));
+            modules.add(this.getClass().getModule().toString());
+            systemExitAllowPermissions.set(mac, Set.copyOf(modules));
+
+            System.exit(-2);
+        });
+    }
 }
+
