@@ -16,7 +16,7 @@
  */
 module matilda.test {
     requires matilda.core;
-    requires org.junit.jupiter.api;
+    requires org.junit.jupiter.params;
     opens org.matilda.test to org.junit.platform.commons;
     opens org.matilda.test.bootstrap to org.junit.platform.commons;
 }

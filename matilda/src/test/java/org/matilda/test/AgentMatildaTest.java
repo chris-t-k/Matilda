@@ -19,6 +19,9 @@ package org.matilda.test;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.matilda.bootstrap.MatildaAccessControl;
 import org.matilda.bootstrap.ModuleProxy;
 
@@ -26,10 +29,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.lang.reflect.*;
 import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 
 /**
@@ -69,7 +70,7 @@ public class AgentMatildaTest {
     }
 
     @Test
-    public void testSystemExecTransformer() throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException, InterruptedException {
+    public void testSystemExecTransformer() {
         RuntimeException uOE = Assertions.assertThrows(RuntimeException.class, () -> {
             Runtime.getRuntime().exec("echo");
             Assertions.fail("should not have been able to run a process");
@@ -224,23 +225,58 @@ public class AgentMatildaTest {
         Assertions.assertEquals("ServerSocket.bind not allowed for Module: matilda.test", exception.getMessage());
     }
 
-    @Test
-    public void bootstrapPackageIsNotOpen() {
-        Assertions.assertThrows(Throwable.class, () -> {
+    public static Stream<Arguments> openBootstrapPackageIsNotExploitableBySettingFields() {
+        return Stream.of(MatildaAccessControl.class.getDeclaredFields())
+                .filter(f -> !f.accessFlags().contains(AccessFlag.STATIC))
+                .map(Field::getName)
+                .map(Arguments::arguments);
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    public void openBootstrapPackageIsNotExploitableBySettingFields(String fieldName) {
+        String expectedMsg = String.format(
+                "Can not set final java.util.Set field org.matilda.bootstrap.MatildaAccessControl.%s to java.util.ImmutableCollections$Set12",
+                fieldName);
+        String msg = Assertions.assertThrows(IllegalAccessException.class, () -> {
             Class<?> macClass = Class.forName(MatildaAccessControl.class.getName(), false, null);
 
             assert macClass != MatildaAccessControl.class;
             assert macClass.getModule().isOpen(macClass.getPackageName(), this.getClass().getModule());
 
-            Field systemExitAllowPermissions = macClass.getDeclaredField("systemExitAllowPermissions");
-            systemExitAllowPermissions.setAccessible(true);
-            Object mac = macClass.getMethod("getInstance").invoke(null);
-            List<String> modules = new ArrayList<>((Set) systemExitAllowPermissions.get(mac));
-            modules.add(this.getClass().getModule().toString());
-            systemExitAllowPermissions.set(mac, Set.copyOf(modules));
+            Field recordField = macClass.getDeclaredField(fieldName);
+            recordField.setAccessible(true);
 
-            System.exit(-2);
-        });
+            Object mac = macClass.getMethod("getInstance").invoke(null);
+            List<String> modules = new ArrayList<>((Set<String>) recordField.get(mac));
+            modules.add(this.getClass().getModule().toString());
+            recordField.set(mac, Set.copyOf(modules));
+
+            System.exit(-2); //never reached if test passes
+        }).getMessage();
+        Assertions.assertEquals(expectedMsg, msg);
+    }
+
+    @Test
+    public void openBootstrapPackageIsNotExploitableBySettingInstance() {
+        String msg = Assertions.assertThrows(IllegalAccessException.class, () -> {
+            Class<?> macClass = Class.forName(MatildaAccessControl.class.getName(), false, null);
+
+            Set<String> thisModule = Set.of(this.getClass().getModule().toString());
+            Object mac = macClass.getConstructor(Set.class, Set.class, Set.class, Set.class)
+                    .newInstance(thisModule, thisModule, thisModule, thisModule);
+
+            Field instance = macClass.getDeclaredField("INSTANCE");
+            instance.setAccessible(true);
+            instance.set(null, mac);
+
+            System.exit(-3); //never reached if test passes
+        }).getMessage();
+
+        Assertions.assertEquals(
+                "Can not set static final org.matilda.bootstrap.MatildaAccessControl field org.matilda.bootstrap.MatildaAccessControl.INSTANCE to org.matilda.bootstrap.MatildaAccessControl"
+                , msg
+        );
     }
 }
 

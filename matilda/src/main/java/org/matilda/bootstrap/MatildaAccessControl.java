@@ -34,18 +34,18 @@ import java.util.regex.Pattern;
  *
  * @author Elina Eickstaedt
  */
-// Class is final for security reasons, to supress any manipulation
-public final class MatildaAccessControl {
+// record for security reasons. Cannot be manipulated with Field.set
+public record MatildaAccessControl(
+        Set<String> systemExitAllowPermissions,
+        Set<String> systemExecAllowPermissions,
+        Set<String> networkConnectAllowPermissions,
+        Set<String> serverSocketBindAllowPermissions) {
     // TODO implement option that spare the need of using the module prefix
     // TODO: replace the Allowed modules with a simple check for "java.base"
     // TODO: Fix, potential circular dependency
     // List of System.class Modules, only Modules that are of interest
     private static final Set<Module> ALLOWED_MODULES = Set.of(System.class.getModule());
     private static final MatildaAccessControl INSTANCE = new MatildaAccessControl(System.getProperties());
-    private final Set<String> systemExitAllowPermissions;
-    private final Set<String> systemExecAllowPermissions;
-    private final Set<String> networkConnectAllowPermissions;
-    private final Set<String> serverSocketBindAllowPermissions;
     private static final Logger logger = Logger.getLogger(MatildaAccessControl.class.getName());
 
     /**
@@ -90,15 +90,31 @@ public final class MatildaAccessControl {
 
 
         // Loading and validation of set configuration
-        this.systemExitAllowPermissions = validateModuleConfig(
-                systemExistAllow.isEmpty()? Set.of() : Set.of(systemExistAllow.split(",")));
-        this.systemExecAllowPermissions = validateModuleConfig(
-                systemExecAllow.isEmpty()? Set.of() : Set.of(systemExecAllow.split(",")));
-        this.networkConnectAllowPermissions = validateModuleConfig(
-                networkConnectAllow.isEmpty() ? Set.of() : Set.of(networkConnectAllow.split(",")));
-        this.serverSocketBindAllowPermissions = validateModuleConfig(
+        this(validateModuleConfig(
+                systemExistAllow.isEmpty()? Set.of() : Set.of(systemExistAllow.split(","))),
+            validateModuleConfig(
+                systemExecAllow.isEmpty()? Set.of() : Set.of(systemExecAllow.split(","))),
+            validateModuleConfig(
+                networkConnectAllow.isEmpty() ? Set.of() : Set.of(networkConnectAllow.split(","))),
+            validateModuleConfig(
                 serverSocketBindAllow.isEmpty() ? Set.of() : Set.of(serverSocketBindAllow.split(","))
-        );
+        ));
+    }
+
+    /*
+     * override all assessors to not expose internal state
+     */
+    public Set<String> systemExitAllowPermissions() {
+        throw new UnsupportedOperationException();
+    }
+    public Set<String> systemExecAllowPermissions() {
+        throw new UnsupportedOperationException();
+    }
+    public Set<String> networkConnectAllowPermissions() {
+        throw new UnsupportedOperationException();
+    }
+    public Set<String> serverSocketBindAllowPermissions() {
+        throw new UnsupportedOperationException();
     }
 
     /**
