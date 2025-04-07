@@ -16,8 +16,7 @@
  */
 package org.matilda.test;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.OS;
 import org.matilda.bootstrap.MatildaAccessControl;
 import org.matilda.bootstrap.ModuleProxy;
@@ -39,11 +38,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-
 /**
  * Tests the functionalities of the Agent and the customized transformer
  */
-
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class AgentMatildaTest {
 
     @Test
@@ -69,7 +67,7 @@ public class AgentMatildaTest {
     }
 
     @Test
-    public void testSystemExecTransformer() throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException, InterruptedException {
+    public void testSystemExecTransformer() {
         RuntimeException uOE = Assertions.assertThrows(RuntimeException.class, () -> {
             Runtime.getRuntime().exec("echo");
             Assertions.fail("should not have been able to run a process");
@@ -222,6 +220,16 @@ public class AgentMatildaTest {
             }
         });
         Assertions.assertEquals("ServerSocket.bind not allowed for Module: matilda.test", exception.getMessage());
+    }
+
+    @Test
+    @Order(0)
+    public void initializationCannotBeRaced() {
+        System.setProperty("matilda.runtime.exit.allow", this.getClass().getModule().toString());
+
+        String msg = Assertions.assertThrows(RuntimeException.class, () -> System.exit(-4))
+                .getMessage();
+        Assertions.assertEquals("Runtime.exit not allowed for Module: matilda.test", msg);
     }
 
     @Test
