@@ -16,8 +16,7 @@
  */
 package org.matilda.test;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -40,11 +39,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
-
 /**
  * Tests the functionalities of the Agent and the customized transformer
  */
-
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class AgentMatildaTest {
 
     @Test
@@ -255,6 +253,34 @@ public class AgentMatildaTest {
             System.exit(-2); //never reached if test passes
         }).getMessage();
         Assertions.assertEquals(expectedMsg, msg);
+    }
+    @Test
+    @Order(0)
+    public void initializationCannotBeRaced() {
+        System.setProperty("matilda.runtime.exit.allow", this.getClass().getModule().toString());
+
+        String msg = Assertions.assertThrows(RuntimeException.class, () -> System.exit(-4))
+                .getMessage();
+        Assertions.assertEquals("Runtime.exit not allowed for Module: matilda.test", msg);
+    }
+
+    @Test
+    public void bootstrapPackageIsNotOpen() {
+        Assertions.assertThrows(Throwable.class, () -> {
+            Class<?> macClass = Class.forName(MatildaAccessControl.class.getName(), false, null);
+
+            assert macClass != MatildaAccessControl.class;
+            assert macClass.getModule().isOpen(macClass.getPackageName(), this.getClass().getModule());
+
+            Field systemExitAllowPermissions = macClass.getDeclaredField("systemExitAllowPermissions");
+            systemExitAllowPermissions.setAccessible(true);
+            Object mac = macClass.getMethod("getInstance").invoke(null);
+            List<String> modules = new ArrayList<>((Set) systemExitAllowPermissions.get(mac));
+            modules.add(this.getClass().getModule().toString());
+            systemExitAllowPermissions.set(mac, Set.copyOf(modules));
+
+            System.exit(-2);
+        });
     }
 
     @Test
