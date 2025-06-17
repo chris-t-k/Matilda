@@ -19,6 +19,8 @@ package org.matilda;
 import module java.base;
 import module java.instrument;
 
+import org.matilda.bootstrap.MatildaAccessControl;
+
 import java.util.logging.Logger;
 
 /**
@@ -114,6 +116,12 @@ public final class AgentMatilda {
          * platform classloader they need to be discoverable for the bootstrap classloader
          */
         inst.appendToBootstrapClassLoaderSearch(bootstrapJar);
+        try {
+            // Force initialization to catch current system properties and avoid race conditions
+            Class.forName(MatildaAccessControl.class.getName(), true, null);
+        } catch (ClassNotFoundException e) {
+            throw new AssertionError(e); //cannot happen
+        }
     }
 
     /**
